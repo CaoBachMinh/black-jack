@@ -2,6 +2,7 @@
 
 (require 2htdp/universe)
 (require 2htdp/image)
+(require rackunit)
 
 (define card-images
   (hash'cA (bitmap "assets/clubs_A.png")
@@ -72,24 +73,35 @@
 (define HEIGHT 800)
 (define CANVAS (empty-scene WIDTH HEIGHT))
 
-(define (get-random-card dict)
-  (define all-keys (hash-keys dict))
-  (define random-key (list-ref all-keys (random (length all-keys))))
-  (hash-ref dict random-key))
+(define MASTER-DECK (hash-keys card-images))
+
+(define (get-random-card deck-list)
+  (if (empty? MASTER-DECK)  
+      (error "The Deck is empty")
+  (let ([random-card (list-ref MASTER-DECK (random (length MASTER-DECK)))])
+          (set! MASTER-DECK (remove random-card MASTER-DECK))
+           random-card)))
 
 (define (draw-back-card n scene)
   (place-image back-card 500 200 scene))
 
 (define (draw-player-card n scene)
-  (define current-card (get-random-card card-images))
+  (define current-card (hash-ref card-images (get-random-card card-images)))
   (place-image (frame current-card) 500 600 scene))
 
 (define (draw-dealer-card n scene)
-  (define current-card (get-random-card card-images))
+  (define current-card (hash-ref card-images (get-random-card card-images)))
   (place-image (frame current-card) 500 200 scene))
 
 (define (draw-game n)
-  (draw-back-card n (draw-player-card n CANVAS)))
+  (draw-dealer-card n (draw-player-card n CANVAS)))
+
+(define player-hand empty)
+(define dealer-hand empty)
+
+(define (add-card card deck)
+  (cons card deck))
+(check-equal? (add-card 'cA player-hand) '(cA))
 
 (big-bang 0
   (to-draw draw-game))
