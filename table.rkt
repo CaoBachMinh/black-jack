@@ -108,8 +108,42 @@
 
 ;; calculate-score : (listof CardSymbol) -> Hand's Score
 ;; Takes a list of cards and returns their total point value.
+;; This function will calculate score without including special cases
 (define (calculate-score hand)
-  (apply + (map get-card-value hand)))
+  (let* ([hand-size (length hand)]
+         [raw-score (apply + (map get-card-value hand))]
+         [has-ace (has-ace? hand)]
+         [non-ace-score (if has-ace (- raw-score 1) raw-score)] ; if has ace in hand, then simply - 1 from raw point
+         )
+    (cond
+      [(not has-ace) raw-score]
+      [(>= hand-size 4) raw-score]
+      [(= hand-size 2) (+ non-ace-score 11)]
+      [(= hand-size 3)
+       (cond
+         [(> non-ace-score 11) raw-score]
+         [(= non-ace-score 11)
+          ;Return list to let player decide whether hit or stand
+          (list (+ non-ace-score 1)  ;12 
+                (+ non-ace-score 10))] ;21
+         [(< non-ace-score 11)
+          ;Return list to let player decide whether hit or stand
+          (list (+ non-ace-score 1)
+                (+ non-ace-score 11))])])))
+     
+    
+
+(define (has-ace? hand)
+  (ormap (lambda(card)
+           (member card '(cA dA hA sA)))
+         hand))
+
+;;Use when having Ace but decide to stand early
+(define (get-best-valid-score score)
+  (if(list? score)
+     (second score)
+     score))
+  
 
 (define back-card (bitmap "assets/back.png"))
 (define (draw-back-card n scene)
@@ -126,6 +160,19 @@
   (let ([random-card (list-ref MASTER-DECK (random (length MASTER-DECK)))])
           (set! MASTER-DECK (remove random-card MASTER-DECK))
            random-card)))
+
+(define MASTER-DECK-TEST '(s5 d3 s2 s3 sA s7 d6 s9 s10))
+(define (get-random-card-test deck-list)
+    (if (empty? deck-list)
+      (error "The Deck is empty")
+      (let ([card (first deck-list)])         
+        (set! MASTER-DECK-TEST (rest deck-list)) 
+        card)))
+  
+
+
+
+
 
 (struct game-state (player-hand dealer-hand))
 (define game-message "")
@@ -167,33 +214,69 @@
          ;; --- CLICKED HIT BUTTON ---
          [(and (>= mouse-x hit-L) (<= mouse-x hit-R)
                (>= mouse-y hit-T) (<= mouse-y hit-B))
-
-          ;; Only allow draw card if in turn
-          (if (not turn-ended?)
-              (if (< (calculate-score player-hand) 21)
-                  (begin
-                    (set! player-hand (add-card (get-random-card MASTER-DECK) player-hand))
-                    (set! game-message "") 
-                    state)
-                  (begin
-                    (if (>= (calculate-score player-hand) 21)
-                        (set! game-message "Bust! You cannot draw over 21.")
-                    state)))
-              
-              ;; If turn-ended? is true, do nothing when hit is clicked
-              state)]
+          (handle-hit-click state)
+          ]
          
          ;; --- CLICKED END TURN BUTTON ---
          [(and (>= mouse-x end-L) (<= mouse-x end-R)
                (>= mouse-y end-T) (<= mouse-y end-B))
+          (handle-end-click state)
+          ]
+         
+         ;; --- CLICKED ANYWHERE ELSE ---
+         [else state]))]
+    
+    [else state]))
+
+
+
+(define (handle-hit-click state)
+  (let ([player-current-score (calculate-score player-hand)])
+    (cond 
+      [turn-ended?
+       (begin (set! game-message "") state)]
+      [(>= (length player-hand) 5)
+       (begin (set! game-message (string-append "Maximum 5 cards reached!, Your score: " (number->string player-current-score))) state)]
+      
+     [(and (not (list? player-current-score))  (< player-current-score 21))
+          (begin
+            (set! player-hand (add-card (get-random-card-test MASTER-DECK-TEST) player-hand))
+            ;;score after hitting
+            (let ([player-after-hit-score (calculate-score player-hand)])
+              (if (list? player-after-hit-score)
+                  (set! game-message 
+                    (string-append "Your current score is either "
+                                   (number->string (first player-after-hit-score))  ; closed here
+                                    " OR "
+                                    (number->string (second player-after-hit-score)))) ; closed here
+                  ;;if not a list
+                  (set! game-message (string-append "Your current score: " (number->string player-after-hit-score))))) 
+             state)]
+     [(and (not(list? player-current-score)) (>= player-current-score 21))
+           (begin
+               (set! game-message "Bust! You cannot draw over 21.")
+              state)]
+       ;;If it is a list
+     [(list? player-current-score)
+         (begin
+           (set! player-hand (add-card (get-random-card-test MASTER-DECK-TEST) player-hand))
+           (let ([player-after-hit-score (calculate-score player-hand)])
+             (set! game-message (string-append "Your current score: " (number->string player-after-hit-score))))
+           state)]
+     [else state])))
+         
+
+
+
+(define (handle-end-click state)
           (begin
             (set! turn-ended? #t)
             ;; Run the dealer loop
             (dealer-play!)
             
             ;; Figure out who won to display a message!
-            (define p-final (calculate-score player-hand))
-            (define d-final (calculate-score dealer-hand))
+            (define p-final (get-best-valid-score(calculate-score player-hand)))
+            (define d-final (get-best-valid-score(calculate-score dealer-hand)))
             
             (cond
               ;; RULE 1: Both player and dealer are over 21
@@ -202,6 +285,7 @@
   
               ;; RULE 2: Player didn't bust, and they either beat the dealer OR the dealer busted
               [(and (<= p-final 21) (or (> d-final 21) (> p-final d-final)))
+
                (set! game-message "Turn Ended! YOU WIN! 🎉")]
   
               ;; RULE 3: Exact same score (A standard card game tie/push)
@@ -211,12 +295,10 @@
               ;; RULE 4: If none of the above are true, the dealer wins
               [else
                (set! game-message "Turn Ended! DEALER WINS! 💀")])
-            state)]
-         
-         ;; --- CLICKED ANYWHERE ELSE ---
-         [else state]))]
-    
-    [else state]))
+            state))
+
+
+
 
 ;; dealer-play! : -> Void
 ;; Automates the dealer's turn using a recursive loop.
@@ -232,7 +314,7 @@
         
         ;; TRUE: Draw a card, then run this loop again!
         (begin
-          (set! dealer-hand (add-card (get-random-card MASTER-DECK) dealer-hand))
+          (set! dealer-hand (add-card (get-random-card-test MASTER-DECK-TEST) dealer-hand))
           (dealer-loop)) 
         
         ;; FALSE: Condition met (or busted). Stop looping.
@@ -244,10 +326,10 @@
 ;; setup-game : -> GameState
 ;; Deals the initial cards to start the game
 (define (setup-game!)
-  (set! player-hand (list (get-random-card MASTER-DECK) 
-                          (get-random-card MASTER-DECK)))
-  (set! dealer-hand (list (get-random-card MASTER-DECK) 
-                          (get-random-card MASTER-DECK)))
+  (set! player-hand (list (get-random-card-test MASTER-DECK-TEST) 
+                          (get-random-card-test MASTER-DECK-TEST)))
+  (set! dealer-hand (list (get-random-card-test MASTER-DECK-TEST) 
+                          (get-random-card-test MASTER-DECK-TEST)))
   (set! turn-ended? #f))
 
 ;; draw-game : GameState -> Image
@@ -260,7 +342,25 @@
                                          (draw-hand dealer-hand 800 200 
                                                     (draw-hand player-hand 800 600 CANVAS))))))
 
+
+(check-equal? (calculate-score '(h2 h3)) 5)
+(check-equal? (calculate-score '(hK hQ)) 20)
+(check-equal? (calculate-score '(hA h9)) 20)
+(check-equal? (calculate-score '(hA h5)) 16)
+(check-equal? (calculate-score '(hA h2 h3 h4)) 10)
+(check-equal? (calculate-score '(dA d2 d3 d4 d5)) 15)
+(check-equal? (calculate-score '(dA d7 d5)) 13)
+(check-equal? (calculate-score '(dA d10 s10)) 21)
+(check-equal? (calculate-score '(dA d5 s6)) '(12 21))
+(check-equal? (calculate-score '(dA s7 d4)) '(12 21))
+(check-equal? (calculate-score '(dA s6 d4)) '(11 21))
+
+
 (setup-game!)
 (big-bang 0
   (to-draw draw-game)
   (on-mouse handle-mouse))
+
+
+
+
