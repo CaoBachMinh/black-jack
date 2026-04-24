@@ -132,7 +132,8 @@
                 (+ non-ace-score 11))])])))
      
 
-
+;; Check if intial hand (with 2 intital cards) has specicial cases: AA hand or BlackJack
+;;check-initial-special-cases : hand -> Boolean
 (define (check-initial-special-cases hand)
   (cond
     [(not (= (length hand) 2)) "None"]
@@ -141,24 +142,31 @@
     [else "None"]))
       
 
+;;Check if the hand has exactly 2 Aces
+;;has-2-aces? : hand -> Boolean
 (define (has-2-aces? hand)
   (=(length (filter (lambda(card)
             (member card '(cA dA hA sA)))hand))
     2)
   )
-;; Check  if hand has Ace
+
+;; Check if hand has at leats 1 Ace
+;; has-ace?: hand -> #f or ListOf<card>
 (define (has-ace? hand)
   (ormap (lambda(card)
            (member card '(cA dA hA sA)))
          hand))
 
-;;check if hand has 10,J,Q,K
+;;check if hand has at least 1 card in (10,J,Q,K)
+;; has-10?: hand -> #f or ListOf<card>
 (define (has-10? hand)
   (ormap (lambda(card)
            (member card '(c10 d10 h10 s10 cJ dJ hJ sJ cQ dQ hQ sQ cK dK hK sK)))
          hand))
 
 ;;Use when having Ace but decide to stand early
+;; get-best-valid-score: listOf<score> -> score
+
 (define (get-best-valid-score score)
   (if(list? score)
      (second score)
@@ -186,8 +194,9 @@
 
 
 
-(define MASTER-DECK-TEST '(hA s2 sA h10 cA s7 d10 s9 s10))
+;; Hardcoded for GUI test
 
+(define MASTER-DECK-TEST '(hA s2 sA h10 cA s7 d10 s9 s10))
 
 
 (define (get-random-card-test deck-list)
@@ -317,7 +326,6 @@
             
             (cond
 
-
              ;;If 2 have Double-Ace hand  or BlackJack
               [(string=? dealer-special-case-check  player-special-case-check)
                (set! game-message "Turn Ended! DRAW! 😑")]
@@ -372,10 +380,7 @@
 
 ;; dealer-play! : -> Void
 ;; Automates the dealer's turn using a recursive loop.
-(define (dealer-play!)
-
-  
-  
+(define (dealer-play!)  
   (define target-score (+ 16 (random 6)))
   
   ;; Define a local recursive function that acts as our "while" loop
@@ -408,8 +413,6 @@
   ;; if having special cases here
   (define player-special-case-check (check-initial-special-cases player-hand))
 
-
-
    (cond
      [(string=? player-special-case-check "Ace-Ace hand")
       (begin 
@@ -437,6 +440,11 @@
                                                     (draw-hand player-hand 800 600 CANVAS))))))
 
 
+
+
+
+;;Test cases
+
 (check-equal? (calculate-score '(h2 h3)) 5)
 (check-equal? (calculate-score '(hK hQ)) 20)
 (check-equal? (calculate-score '(hA h9)) 20)
@@ -448,6 +456,100 @@
 (check-equal? (calculate-score '(dA d5 s6)) '(12 21))
 (check-equal? (calculate-score '(dA s7 d4)) '(12 21))
 (check-equal? (calculate-score '(dA s6 d4)) '(11 21))
+
+;; --- NOT 2 CARDS: always "None" ---
+(check-equal? (check-initial-special-cases '()) "None" "empty hand - not special")
+(check-equal? (check-initial-special-cases '(hA)) "None" "1 card - not special")
+(check-equal? (check-initial-special-cases '(hA cA h5)) "None" "3 cards with 2 aces - not special")
+(check-equal? (check-initial-special-cases '(hA hK h5)) "None" "3 cards with ace+king - not special")
+(check-equal? (check-initial-special-cases '(hA cA h5 h6)) "None" "4 cards - not special")
+
+;; --- ACE-ACE HAND ---
+(check-equal? (check-initial-special-cases '(hA cA)) "Ace-Ace hand" "hearts ace + clubs ace")
+(check-equal? (check-initial-special-cases '(hA dA)) "Ace-Ace hand" "hearts ace + diamonds ace")
+(check-equal? (check-initial-special-cases '(sA dA)) "Ace-Ace hand" "spades ace + diamonds ace")
+(check-equal? (check-initial-special-cases '(cA sA)) "Ace-Ace hand" "clubs ace + spades ace")
+
+;; --- BLACKJACK: ace + 10/J/Q/K ---
+(check-equal? (check-initial-special-cases '(hA h10)) "BlackJack" "ace + 10")
+(check-equal? (check-initial-special-cases '(hA hJ))  "BlackJack" "ace + jack")
+(check-equal? (check-initial-special-cases '(hA hQ))  "BlackJack" "ace + queen")
+(check-equal? (check-initial-special-cases '(hA hK))  "BlackJack" "ace + king")
+(check-equal? (check-initial-special-cases '(hK hA))  "BlackJack" "king + ace (reversed order)")
+
+;; --- NONE: 2 cards, no special case ---
+(check-equal? (check-initial-special-cases '(h5 h6))  "None" "5+6 no special")
+(check-equal? (check-initial-special-cases '(h2 hK))  "None" "2+king no special")
+(check-equal? (check-initial-special-cases '(h9 h8))  "None" "9+8 no special")
+
+
+#|
+
+;; =====================
+;; has-2-aces? tests
+;; =====================
+;; TRUE cases
+(check-equal? (has-2-aces? '(hA cA))       #t "2 aces: hearts + clubs")
+(check-equal? (has-2-aces? '(hA dA))       #t "2 aces: hearts + diamonds")
+(check-equal? (has-2-aces? '(sA dA))       #t "2 aces: spades + diamonds")
+(check-equal? (has-2-aces? '(hA cA h5))    #t "2 aces in 3 card hand")
+
+;; FALSE cases
+(check-equal? (has-2-aces? '(hA h5 h6))   #f "only 1 ace")
+(check-equal? (has-2-aces? '(h5 h6 h7))   #f "no aces")
+(check-equal? (has-2-aces? '())            #f "empty hand")
+(check-equal? (has-2-aces? '(hA))          #f "only 1 card, 1 ace")
+
+;; =====================
+;; has-ace? tests
+;; =====================
+;; TRUE cases
+(check-equal? (has-ace? '(hA h5))          '(hA) "hearts ace")
+(check-equal? (has-ace? '(cA h5))          '(cA) "clubs ace")
+(check-equal? (has-ace? '(dA h5))          '(dA) "diamonds ace")
+(check-equal? (has-ace? '(sA h5))          '(sA) "spades ace")
+(check-equal? (has-ace? '(hA cA h5))       '(hA) "2 aces still returns true")
+
+;; FALSE cases
+(check-equal? (has-ace? '(h5 h6))          #f "no ace")
+(check-equal? (has-ace? '(hK hQ))          #f "face cards no ace")
+(check-equal? (has-ace? '())               #f "empty hand")
+
+;; =====================
+;; has-10? tests
+;; =====================
+;; TRUE cases - each suit of 10
+(check-equal? (has-10? '(h10 h5))          '(h10) "hearts 10")
+(check-equal? (has-10? '(c10 h5))          '(c10) "clubs 10")
+(check-equal? (has-10? '(d10 h5))          '(d10) "diamonds 10")
+(check-equal? (has-10? '(s10 h5))          '(h10) "spades 10")
+
+;; TRUE cases - face cards
+(check-equal? (has-10? '(hJ h5))           '(hJ) "hearts jack")
+(check-equal? (has-10? '(hQ h5))           '(hQ) "hearts queen")
+(check-equal? (has-10? '(hK h5))           '(hK) "hearts king")
+(check-equal? (has-10? '(cJ dQ sK h5))     '(cJ dQ sK) "multiple face cards")
+
+;; FALSE cases
+(check-equal? (has-10? '(h5 h6))           #f "no 10 or face card")
+(check-equal? (has-10? '(hA h9))           #f "ace and 9, no 10")
+(check-equal? (has-10? '())                #f "empty hand")
+
+;; =====================
+;; get-best-valid-score tests
+;; =====================
+;; List input - always returns second (higher) value
+(check-equal? (get-best-valid-score '(8 18))   18  "returns higher: 8 or 18")
+(check-equal? (get-best-valid-score '(12 21))  21  "returns higher: 12 or 21")
+(check-equal? (get-best-valid-score '(2 12))   12  "returns higher: 2 or 12")
+
+;; Single number input - returns as is
+(check-equal? (get-best-valid-score 20)        20  "single score 20")
+(check-equal? (get-best-valid-score 14)        14  "single score 14")
+(check-equal? (get-best-valid-score 21)        21  "single score 21")
+(check-equal? (get-best-valid-score 5)         5   "single score 5")
+
+|#
 
 
 (setup-game!)
