@@ -131,11 +131,31 @@
           (list (+ non-ace-score 1)
                 (+ non-ace-score 11))])])))
      
-    
 
+
+(define (check-initial-special-cases hand)
+  (cond
+    [(not (= (length hand) 2)) "None"]
+    [(has-2-aces? hand) "Ace-Ace hand"]
+    [(and (has-ace? hand) (has-10? hand)) "BlackJack"]
+    [else "None"]))
+      
+
+(define (has-2-aces? hand)
+  (=(length (filter (lambda(card)
+            (member card '(cA dA hA sA)))hand))
+    2)
+  )
+;; Check  if hand has Ace
 (define (has-ace? hand)
   (ormap (lambda(card)
            (member card '(cA dA hA sA)))
+         hand))
+
+;;check if hand has 10,J,Q,K
+(define (has-10? hand)
+  (ormap (lambda(card)
+           (member card '(c10 d10 h10 s10 cJ dJ hJ sJ cQ dQ hQ sQ cK dK hK sK)))
          hand))
 
 ;;Use when having Ace but decide to stand early
@@ -161,7 +181,15 @@
           (set! MASTER-DECK (remove random-card MASTER-DECK))
            random-card)))
 
-(define MASTER-DECK-TEST '(s5 d3 s2 s3 sA s7 d6 s9 s10))
+
+
+
+
+
+(define MASTER-DECK-TEST '(hA s2 sA h10 cA s7 d10 s9 s10))
+
+
+
 (define (get-random-card-test deck-list)
     (if (empty? deck-list)
       (error "The Deck is empty")
@@ -271,14 +299,54 @@
 (define (handle-end-click state)
           (begin
             (set! turn-ended? #t)
-            ;; Run the dealer loop
-            (dealer-play!)
-            
+           (let* ([dealer-special-case-check (check-initial-special-cases dealer-hand)]
+                  [player-special-case-check (check-initial-special-cases player-hand)]
+
+                  ;;Like a trick to run a code inside let
+                  [dummy (cond
+                           [(string=? dealer-special-case-check "Ace-Ace hand") ""]
+               
+                           [(string=? dealer-special-case-check "BlackJack") ""]
+                            ;; Run the dealer loop
+                           [else (dealer-play!)])]
+                  [p-final (get-best-valid-score(calculate-score player-hand))]
+                  [d-final (get-best-valid-score(calculate-score dealer-hand))])
+                  
+           
             ;; Figure out who won to display a message!
-            (define p-final (get-best-valid-score(calculate-score player-hand)))
-            (define d-final (get-best-valid-score(calculate-score dealer-hand)))
             
             (cond
+
+
+             ;;If 2 have Double-Ace hand  or BlackJack
+              [(string=? dealer-special-case-check  player-special-case-check)
+               (set! game-message "Turn Ended! DRAW! 😑")]
+
+              ;; If Dealer AA and Player BlackJack, Dealer win
+              [(and (string=? dealer-special-case-check "Ace-Ace hand") (string=? player-special-case-check "BlackJack" ))
+               (set! game-message "Turn Ended! DEALER WINS! 💀")]
+
+              ;;If Player AA and Dealer BlackJack, Player win
+              [(and (string=? dealer-special-case-check "BlackJack") (string=? player-special-case-check "Ace-Ace hand"))
+               (set! game-message "Turn Ended! YOU WIN! 🎉" )]
+
+
+              ;;If Player have Special cases and Dealer dont
+               [(and (string=? dealer-special-case-check "None") (not (string=? player-special-case-check "None")))
+               (set! game-message "Turn Ended! YOU WIN! 🎉" )]
+
+               ;;If Dealer has special cases and player doesnt
+               [(and (string=? player-special-case-check "None") (not (string=? dealer-special-case-check "None")))
+               (set! game-message "Turn Ended! DEALER WINS! 💀" )]
+
+
+               ;; Speical rule: If one have 5 cards with points <= 21, then win
+                  ;;fill code here
+
+              ;; Speical rule: Charlie  if both have 5 cards with points <=21, then compare who has less point will win
+                 ;; fill code
+
+              
               ;; RULE 1: Both player and dealer are over 21
               [(and (> p-final 21) (> d-final 21))
                (set! game-message "Turn Ended! DRAW! 😑")]
@@ -291,11 +359,13 @@
               ;; RULE 3: Exact same score (A standard card game tie/push)
               [(= p-final d-final)
                (set! game-message "Turn Ended! DRAW! (Equal Scores) 😑")]
+
+  
   
               ;; RULE 4: If none of the above are true, the dealer wins
               [else
                (set! game-message "Turn Ended! DEALER WINS! 💀")])
-            state))
+            state)))
 
 
 
@@ -303,11 +373,15 @@
 ;; dealer-play! : -> Void
 ;; Automates the dealer's turn using a recursive loop.
 (define (dealer-play!)
+
+  
+  
   (define target-score (+ 16 (random 6)))
   
   ;; Define a local recursive function that acts as our "while" loop
   (define (dealer-loop)
-    (define d-score (calculate-score dealer-hand))
+    (define d-score (get-best-valid-score(calculate-score dealer-hand)))
+    
     
     ;; RULE: If dealer score is less than target score
     (if (< d-score target-score)
@@ -330,7 +404,27 @@
                           (get-random-card-test MASTER-DECK-TEST)))
   (set! dealer-hand (list (get-random-card-test MASTER-DECK-TEST) 
                           (get-random-card-test MASTER-DECK-TEST)))
-  (set! turn-ended? #f))
+
+  ;; if having special cases here
+  (define player-special-case-check (check-initial-special-cases player-hand))
+
+
+
+   (cond
+     [(string=? player-special-case-check "Ace-Ace hand")
+      (begin 
+      (set! game-message "You have an Ace-Ace hand!")
+      (set! turn-ended? #t))
+      ]
+     [(string=? player-special-case-check "BlackJack")
+      (begin
+      (set! game-message "You have a BlackJack!")
+      (set! turn-ended? #t))
+      ]
+     [else (set! turn-ended? #f)]
+     ))
+                                                       
+                                                
 
 ;; draw-game : GameState -> Image
 ;; Renders the board and the UI buttons
