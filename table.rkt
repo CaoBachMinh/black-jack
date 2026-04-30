@@ -252,7 +252,7 @@
       
      [(and (not (list? player-current-score))  (< player-current-score 21))
           (begin
-            (set! player-hand (add-card (get-random-card-test MASTER-DECK-TEST) player-hand))
+            (set! player-hand (add-card (get-random-card MASTER-DECK) player-hand))
             ;;score after hitting
             (let ([player-after-hit-score (calculate-score player-hand)])
               (if (list? player-after-hit-score)
@@ -271,7 +271,7 @@
        ;;If it is a list
      [(list? player-current-score)
          (begin
-           (set! player-hand (add-card (get-random-card-test MASTER-DECK-TEST) player-hand))
+           (set! player-hand (add-card (get-random-card MASTER-DECK) player-hand))
            (let ([player-after-hit-score (calculate-score player-hand)])
              (set! game-message (string-append "Your current score: " (number->string player-after-hit-score))))
            state)]
@@ -368,7 +368,7 @@
         
         ;; TRUE: Draw a card, then run this loop again!
         (begin
-          (set! dealer-hand (add-card (get-random-card-test MASTER-DECK-TEST) dealer-hand))
+          (set! dealer-hand (add-card (get-random-card MASTER-DECK) dealer-hand))
           (dealer-loop)) 
         
         ;; FALSE: Condition met (or busted). Stop looping.
@@ -380,10 +380,10 @@
 ;; setup-game : -> GameState
 ;; Deals the initial cards to start the game
 (define (setup-game!)
-  (set! player-hand (list (get-random-card-test MASTER-DECK-TEST) 
-                          (get-random-card-test MASTER-DECK-TEST)))
-  (set! dealer-hand (list (get-random-card-test MASTER-DECK-TEST) 
-                          (get-random-card-test MASTER-DECK-TEST)))
+  (set! player-hand (list (get-random-card MASTER-DECK) 
+                          (get-random-card MASTER-DECK)))
+  (set! dealer-hand (list (get-random-card MASTER-DECK) 
+                          (get-random-card MASTER-DECK)))
 
   ;; if having special cases here
   (define player-special-case-check (check-initial-special-cases player-hand))
