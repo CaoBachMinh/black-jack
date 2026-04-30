@@ -137,6 +137,7 @@
     [(not (= (length hand) 2)) "None"]
     [(has-2-aces? hand) "Ace-Ace hand"]
     [(and (has-ace? hand) (has-10? hand)) "BlackJack"]
+    [(and (= (length hand) 5) (<= (calculate-score hand) 21)) "5-Card Charlie"]
     [else "None"]))
       
 
@@ -204,7 +205,7 @@
             [card-img (if hide? back-card (hash-ref card-images first-card-symbol))])
        ;; Draw the first card, then recursively draw the rest shifted by 40 pixels
        (place-image (frame card-img) x y 
-                    (draw-hand (rest hand) (- x 100) y hide? scene)))]))
+                    (draw-hand (rest hand) (- x 150) y hide? scene)))]))
 
 ;; handle-mouse : Any mouse-x-position mouse-y-position MouseEvent -> Any
 (define (handle-mouse state mouse-x mouse-y event)
@@ -302,7 +303,8 @@
             (cond
 
              ;;If 2 have Double-Ace hand  or BlackJack
-              [(string=? dealer-special-case-check  player-special-case-check)
+              [(and (string=? dealer-special-case-check  player-special-case-check)
+                    (not (string=? player-special-case-check "None")))
                (set! game-message "Turn Ended! DRAW! 😑")]
 
               ;; If Dealer AA and Player BlackJack, Dealer win
@@ -323,12 +325,21 @@
                (set! game-message "Turn Ended! DEALER WINS! 💀" )]
 
 
-               ;; Speical rule: If one have 5 cards with points <= 21, then win
-                  ;;fill code here
+              ;; Speical rule: If one have 5 cards with points <= 21, then win
+               ;; If player has 5-card Charlie but dealer doesn't
+               [(and (string=? player-special-case-check "5-Card Charlie") (not (string=? dealer-special-case-check "5-Card Charlie")))
+                (set! game-message "Turn Ended! YOU WIN! 🎉")]
+               ;; If player doesn't have 5-card Charlie but dealer does
+               [(and (string=? dealer-special-case-check "5-Card Charlie") (not (string=? player-special-case-check "5-Card Charlie")))
+                (set! game-message "Turn Ended! DEALER WINS! 💀")]
 
               ;; Speical rule: Charlie  if both have 5 cards with points <=21, then compare who has less point will win
-                 ;; fill code
-
+                [(and (string=? dealer-special-case-check "5-Card Charlie") (string=? player-special-case-check "5-Card Charlie"))
+                 (cond
+                   [(< p-final d-final) (set! game-message "Turn Ended! YOU WIN! 🎉")]
+                   [(> p-final d-final) (set! game-message "Turn Ended! DEALER WINS! 💀")]
+                   [(= p-final d-final) (set! game-message "Turn Ended! DRAW! 😑")]
+                  )]                
               
               ;; RULE 1: Both player and dealer are over 21
               [(and (> p-final 21) (> d-final 21))
@@ -343,15 +354,10 @@
               [(= p-final d-final)
                (set! game-message "Turn Ended! DRAW! (Equal Scores) 😑")]
 
-  
-  
               ;; RULE 4: If none of the above are true, the dealer wins
               [else
                (set! game-message "Turn Ended! DEALER WINS! 💀")])
             state)))
-
-
-
 
 ;; dealer-play! : -> Void
 ;; Automates the dealer's turn using a recursive loop.
