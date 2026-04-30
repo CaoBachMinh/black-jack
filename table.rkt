@@ -22,11 +22,9 @@
 ;; --- End Button Constants ---
 (define END-BUTTON-X 1100)
 (define END-BUTTON-Y 650)
-(define END-BUTTON-WIDTH 120)
-(define END-BUTTON-HEIGHT 50)
 (define END-BUTTON-IMG 
   (overlay (text "END TURN" 20 "white")
-           (rectangle END-BUTTON-WIDTH END-BUTTON-HEIGHT "solid" "red")))
+           (rectangle BUTTON-WIDTH BUTTON-HEIGHT "solid" "red")))
 
 ;; A CardSymbol is a Symbol representing a playing card.
 ;; First letter is suit (c=clubs, d=diamonds, h=hearts, s=spades).
@@ -189,29 +187,6 @@
           (set! MASTER-DECK (remove random-card MASTER-DECK))
            random-card)))
 
-
-
-
-
-
-;; Hardcoded for GUI test
-
-(define MASTER-DECK-TEST '(hA s2 sA h10 cA s7 d10 s9 s10))
-
-
-(define (get-random-card-test deck-list)
-    (if (empty? deck-list)
-      (error "The Deck is empty")
-      (let ([card (first deck-list)])         
-        (set! MASTER-DECK-TEST (rest deck-list)) 
-        card)))
-  
-
-
-
-
-
-(struct game-state (player-hand dealer-hand))
 (define game-message "")
 
 (define player-hand empty)
@@ -221,15 +196,15 @@
 
 ;; draw-hand : (listof CardSymbol) x-position y-position canvas -> Card's Image
 ;; Draws a hand of cards, shifting each subsequent card to the right.
-(define (draw-hand hand x y scene)
+(define (draw-hand hand x y hide? scene)
   (cond
     [(empty? hand) scene]
     [else
      (let* ([first-card-symbol (first hand)]
-            [card-img (hash-ref card-images first-card-symbol)])
+            [card-img (if hide? back-card (hash-ref card-images first-card-symbol))])
        ;; Draw the first card, then recursively draw the rest shifted by 40 pixels
        (place-image (frame card-img) x y 
-                    (draw-hand (rest hand) (- x 100) y scene)))]))
+                    (draw-hand (rest hand) (- x 100) y hide? scene)))]))
 
 ;; handle-mouse : Any mouse-x-position mouse-y-position MouseEvent -> Any
 (define (handle-mouse state mouse-x mouse-y event)
@@ -242,10 +217,10 @@
            [hit-T (- BUTTON-Y (/ BUTTON-HEIGHT 2))]
            [hit-B (+ BUTTON-Y (/ BUTTON-HEIGHT 2))]
            
-           [end-L (- END-BUTTON-X (/ END-BUTTON-WIDTH 2))]
-           [end-R (+ END-BUTTON-X (/ END-BUTTON-WIDTH 2))]
-           [end-T (- END-BUTTON-Y (/ END-BUTTON-HEIGHT 2))]
-           [end-B (+ END-BUTTON-Y (/ END-BUTTON-HEIGHT 2))])
+           [end-L (- END-BUTTON-X (/ BUTTON-WIDTH 2))]
+           [end-R (+ END-BUTTON-X (/ BUTTON-WIDTH 2))]
+           [end-T (- END-BUTTON-Y (/ BUTTON-HEIGHT 2))]
+           [end-B (+ END-BUTTON-Y (/ BUTTON-HEIGHT 2))])
        
        (cond
          ;; --- CLICKED HIT BUTTON ---
@@ -436,8 +411,8 @@
                ;; Draw the button, then the dealer's hand, then the player's hand
                (place-image HIT-BUTTON-IMG BUTTON-X BUTTON-Y
                             (place-image END-BUTTON-IMG END-BUTTON-X END-BUTTON-Y
-                                         (draw-hand dealer-hand 800 200 
-                                                    (draw-hand player-hand 800 600 CANVAS))))))
+                                         (draw-hand dealer-hand 800 200 (not turn-ended?) 
+                                                    (draw-hand player-hand 800 600 #f CANVAS))))))
 
 
 
